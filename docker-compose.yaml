@@ -1,0 +1,27 @@
+services:
+  app:
+    build:
+      context: ./
+    environment:
+      DB_HOST: db
+      DB_USER: user
+      DB_PASSWORD: ${DB_PASS:-default_pass}
+      DB_DB: mydb
+    depends_on:
+      - db
+    ports:
+      - "8080:8080"
+
+  db:
+    image: postgres:17
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: ${DB_PASS:-default_pass}
+      POSTGRES_DB: mydb
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    
+      
