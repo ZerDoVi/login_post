@@ -12,7 +12,8 @@ func main() {
 
 	db := database.Connect()
 	defer db.Close(context.Background())
-	http.HandleFunc("/login", pages.Page1(db))
+	http.HandleFunc("/register", pages.Register(db))
+	http.HandleFunc("/login", pages.Login(db))
 	fmt.Println("start!!!!!")
 	http.ListenAndServe(":8080", nil)
 }
