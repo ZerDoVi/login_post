@@ -4,13 +4,14 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"project/sessions"
 	"text/template"
 
 	"github.com/jackc/pgx/v5"
 )
 
 type User struct {
-	User     string `json:"user"`
+	Login    string `json:"login"`
 	Password string `json:"password"`
 }
 
@@ -37,16 +38,36 @@ func Register(db *pgx.Conn) http.HandlerFunc {
 				w.WriteHeader(400)
 				return
 			}
+			var exists string
+			err = db.QueryRow(r.Context(), "SELECT login FROM users WHERE login=$1", usr.Login).Scan(&exists)
+			if err == nil {
+				w.WriteHeader(409)
+				return
+			}
 
-			_, err = db.Exec(r.Context(), "INSERT INTO users (user, password) VALUES ($1,$2)", usr.User, usr.Password)
+			_, err = db.Exec(r.Context(), "INSERT INTO users(login, password) VALUES($1,$2)", usr.Login, usr.Password)
 			if err != nil {
 				w.WriteHeader(500)
 				return
 			}
-			return
+			Idsession := sessions.Session()
+
+			_, err = db.Exec(r.Context(),
+				"INSERT INTO sessions(session_id, login) VALUES($1,$2) ON CONFLICT (login) DO UPDATE SET session_id = EXCLUDED.session_id",
+				Idsession, usr.Login)
+			if err != nil {
+				w.WriteHeader(500)
+				return
+			}
+			http.SetCookie(w, &http.Cookie{
+				Name:  "session",
+				Value: Idsession,
+				Path:  "/",
+			})
 		}
 	}
 }
+
 func Login(db *pgx.Conn) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
@@ -70,7 +91,7 @@ func Login(db *pgx.Conn) http.HandlerFunc {
 				return
 			}
 			var pass string
-			err = db.QueryRow(r.Context(), "SELECT password FROM users WHERE user=$1", usr.User).Scan(&pass)
+			err = db.QueryRow(r.Context(), "SELECT password FROM users WHERE login=$1", usr.Login).Scan(&pass)
 			if err != nil {
 				w.WriteHeader(404)
 				return
@@ -79,9 +100,18 @@ func Login(db *pgx.Conn) http.HandlerFunc {
 				http.Error(w, "wrong password", 401)
 				return
 			}
+			Idsession := sessions.Session()
+
+			_, err = db.Exec(r.Context(),
+				"INSERT INTO sessions(session_id, login) VALUES($1,$2) ON CONFLICT (login) DO UPDATE SET session_id = EXCLUDED.session_id",
+				Idsession, usr.Login)
+			if err != nil {
+				w.WriteHeader(500)
+				return
+			}
 			http.SetCookie(w, &http.Cookie{
 				Name:  "session",
-				Value: usr.User,
+				Value: Idsession,
 				Path:  "/",
 			})
 		}
