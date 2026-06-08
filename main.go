@@ -1,19 +1,18 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"project/database"
-	"project/pages"
+	"project/handlers"
 )
 
 func main() {
 
 	db := database.Connect()
-	defer db.Close(context.Background())
-	http.HandleFunc("/register", pages.Register(db))
-	http.HandleFunc("/login", pages.Login(db))
+	defer db.Close()
+	http.HandleFunc("/register", handlers.Register(db))
+	http.HandleFunc("/login", handlers.Login(db))
 	fmt.Println("start!!!!!")
 	http.ListenAndServe(":8080", nil)
 }
