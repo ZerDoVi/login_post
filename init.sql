@@ -4,3 +4,10 @@ CREATE TABLE IF NOT EXISTS users (
     password TEXT NOT NULL,
     session TEXT UNIQUE NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS posts (
+    id SERIAL PRIMARY KEY,
+    post_text TEXT NOT NULL,
+    id_user INTEGER NOT NULL,
+    FOREIGN KEY (id_user) REFERENCES users(id)
+)

@@ -1,13 +1,32 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func MiddleWare(db *pgx.Conn, n http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+type Idcontext int
 
+const IdUserKey Idcontext = 123
+
+func MiddleWare(db *pgxpool.Pool, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		cookie, err := r.Cookie("session")
+		if err != nil {
+			w.WriteHeader(500)
+			return
+		}
+
+		var IdUser string
+		err = db.QueryRow(r.Context(), "SELECT id FROM users WHERE session=$1", cookie.Value).Scan(&IdUser)
+		if err != nil {
+			w.WriteHeader(401)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), IdUserKey, IdUser)
+		next.ServeHTTP(w, r.WithContext(ctx))
 	}
 }
