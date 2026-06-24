@@ -10,4 +10,7 @@ CREATE TABLE IF NOT EXISTS posts (
     post_text TEXT NOT NULL,
     id_user INTEGER NOT NULL,
     FOREIGN KEY (id_user) REFERENCES users(id)
-)
+);
+
+CREATE INDEX index_login ON users(login);
+CREATE INDEX index_session ON users(session);

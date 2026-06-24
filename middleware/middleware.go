@@ -15,14 +15,14 @@ func MiddleWare(db *pgxpool.Pool, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie("session")
 		if err != nil {
-			w.WriteHeader(500)
+			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		var IdUser string
 		err = db.QueryRow(r.Context(), "SELECT id FROM users WHERE session=$1", cookie.Value).Scan(&IdUser)
 		if err != nil {
-			w.WriteHeader(401)
+			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 

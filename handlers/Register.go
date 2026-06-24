@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"project/auth"
 	"project/sessions"
+	"strings"
 	"text/template"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -17,15 +18,12 @@ type UserRegister struct {
 }
 
 func Register(db *pgxpool.Pool) http.HandlerFunc {
+	var tmpl = template.Must(template.ParseFiles("./web/page1_register.html"))
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		if r.Method == http.MethodGet {
-			tmpl, err := template.ParseFiles("./web/page1_register.html")
-			if err != nil {
-				w.WriteHeader(500)
-				return
-			}
-			err = tmpl.Execute(w, nil)
+
+			err := tmpl.Execute(w, nil)
 			if err != nil {
 				log.Printf("failed to execute template:%v", err)
 				return
@@ -39,15 +37,26 @@ func Register(db *pgxpool.Pool) http.HandlerFunc {
 
 			err := json.NewDecoder(r.Body).Decode(&usr)
 			if err != nil {
-				w.WriteHeader(400)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+
+			usr.Login = strings.TrimSpace(usr.Login)
+
+			if usr.Login == "" {
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(map[string]string{"error": "login cannot be empty"})
 				return
 			}
 
 			var exists string
 
-			err = db.QueryRow(r.Context(), "SELECT login FROM users WHERE login=$1", usr.Login).Scan(&exists)
+			err = db.QueryRow(r.Context(), "SELECT login FROM users WHERE login=$1",
+				usr.Login).Scan(&exists)
+
 			if err == nil {
-				w.WriteHeader(409)
+				w.WriteHeader(http.StatusConflict)
+				json.NewEncoder(w).Encode(map[string]string{"error": "existing login"})
 				return
 			}
 
@@ -58,7 +67,7 @@ func Register(db *pgxpool.Pool) http.HandlerFunc {
 			_, err = db.Exec(r.Context(), "INSERT INTO users(login, password, session) VALUES($1,$2,$3)",
 				usr.Login, bytes, Idsession)
 			if err != nil {
-				w.WriteHeader(500)
+				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
 
@@ -68,6 +77,8 @@ func Register(db *pgxpool.Pool) http.HandlerFunc {
 				Path:     "/",
 				HttpOnly: true,
 			})
+
+			json.NewEncoder(w).Encode(map[string]string{"href": "/posts"})
 		}
 	}
 }

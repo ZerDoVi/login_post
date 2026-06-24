@@ -3,11 +3,52 @@
     <head>
         <meta charset="UTF-8"> 
         <title>
-            page1
+            login
         </title>
 
     </head>
     <body>
-        <h1>123123123 а это логин вот такооой хихи</h1>
+        <div style="max-width: 400px; margin: 100px auto 0 auto; padding: 24px; font-family: system-ui, -apple-system, sans-serif; background: #ffffff; border: 1px solid #e1e8ed; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+        <h2 style="margin: 0 0 24px 0; text-align: center; color: #14171a; font-size: 24px; font-weight: 800;">AUTHORIZATION</h2>
+        <div style="margin-bottom: 16px;">
+        <input id="login" placeholder="Username" style="width: 100%; padding: 12px; border: 1px solid #ccd6dd; border-radius: 8px; font-size: 16px; box-sizing: border-box; outline: none; transition: border-color 0.2s;">
+    </div>
+        <br>
+    <div style="margin-bottom: 12px;">
+        <input id="password" type="password" placeholder="Password" style="width: 100%; padding: 12px; border: 1px solid #ccd6dd; border-radius: 8px; font-size: 16px; box-sizing: border-box; outline: none; transition: border-color 0.2s;">
+    </div>
+        <br>
+
+        <div id="error-block" style="color: #e0245e; font-size: 14px; font-weight: 500; margin-bottom: 16px; text-align: center; min-height: 20px;"></div>
+        <br>
+
+        <button onclick="login()" style="width: 100%; background: #1da1f2; color: #ffffff; border: none; border-radius: 24px; padding: 12px; font-size: 16px; font-weight: bold; cursor: pointer; transition: background 0.2s;">LOG IN</button>
+        </div>
+        <script>
+            async function login() {
+                const res = await fetch("/login", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                    "application/json"
+                    },
+                    body: JSON.stringify({
+                        login:
+                    document.getElementById("login").value,
+                        password:
+                    document.getElementById("password").value
+                    })
+                })
+                const data= await res.json()
+
+                if (!res.ok){
+                    document.getElementById("error-block").innerText=data.error
+                }
+
+                if (data.href){
+                    window.location.href=data.href
+                }
+            }
+        </script>
     </body>
 </html>

@@ -17,14 +17,10 @@ type UserLogin struct {
 }
 
 func Login(db *pgxpool.Pool) http.HandlerFunc {
+	var tmpl = template.Must(template.ParseFiles("./web/page1_login.html"))
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
-			tmpl, err := template.ParseFiles("./web/page1_login.html")
-			if err != nil {
-				w.WriteHeader(500)
-				return
-			}
-			err = tmpl.Execute(w, nil)
+			err := tmpl.Execute(w, nil)
 			if err != nil {
 				log.Printf("failed to execute template:%v", err)
 				return
@@ -36,15 +32,21 @@ func Login(db *pgxpool.Pool) http.HandlerFunc {
 			var usr UserLogin
 			err := json.NewDecoder(r.Body).Decode(&usr)
 			if err != nil {
-				w.WriteHeader(400)
+				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
 
 			var pass string
-			db.QueryRow(r.Context(), "SELECT password FROM users WHERE login=$1", usr.Login).Scan(&pass)
+			err = db.QueryRow(r.Context(), "SELECT password FROM users WHERE login=$1", usr.Login).Scan(&pass)
+			if err != nil {
+				w.WriteHeader(http.StatusUnauthorized)
+				json.NewEncoder(w).Encode(map[string]string{"error": "Incorrect login or password"})
+				return
+			}
 
 			if !auth.HashCheck(pass, usr.Password) {
-				w.WriteHeader(401)
+				w.WriteHeader(http.StatusUnauthorized)
+				json.NewEncoder(w).Encode(map[string]string{"error": "Incorrect login or password"})
 				return
 			}
 
@@ -52,7 +54,7 @@ func Login(db *pgxpool.Pool) http.HandlerFunc {
 
 			_, err = db.Exec(r.Context(), "UPDATE users SET session = $2 WHERE login=$1", usr.Login, Idsession)
 			if err != nil {
-				w.WriteHeader(401)
+				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
 
@@ -62,6 +64,8 @@ func Login(db *pgxpool.Pool) http.HandlerFunc {
 				Path:     "/",
 				HttpOnly: true,
 			})
+
+			json.NewEncoder(w).Encode(map[string]string{"href": "/posts"})
 		}
 	}
 }

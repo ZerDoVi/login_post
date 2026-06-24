@@ -10,38 +10,24 @@ import (
 )
 
 type Posts struct {
-	Userpost string `json:"userpost"`
-	Login    string `json:"login"`
+	Userpost string
+	Login    string
+}
+type NewPost struct {
+	NewUserpost string `json:"posttext"`
 }
 
-var tmpl = template.Must(template.ParseFiles("./web/createpost.html"))
-
 func CreatePost(db *pgxpool.Pool) http.HandlerFunc {
+	var tmpl = template.Must(template.ParseFiles("./web/createpost.html"))
 	return func(w http.ResponseWriter, r *http.Request) {
+
 		IdUser := r.Context().Value(middleware.IdUserKey)
-
-		if r.Method == http.MethodPost {
-			var posts Posts
-			err := json.NewDecoder(r.Body).Decode(&posts)
-			if err != nil {
-				w.WriteHeader(500)
-				return
-			}
-
-			_, err = db.Exec(r.Context(), "INSERT INTO posts(post_text,id_user) VALUES($1,$2)", posts.Userpost, IdUser)
-			if err != nil {
-				w.WriteHeader(500)
-				return
-			}
-			w.WriteHeader(http.StatusCreated)
-			return
-		}
 
 		if r.Method == http.MethodGet {
 
 			row, err := db.Query(r.Context(), "SELECT post_text,login FROM posts JOIN users ON posts.id_user=users.id")
 			if err != nil {
-				w.WriteHeader(500)
+				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
 			defer row.Close()
@@ -51,22 +37,47 @@ func CreatePost(db *pgxpool.Pool) http.HandlerFunc {
 				var p Posts
 				err = row.Scan(&p.Userpost, &p.Login)
 				if err != nil {
-					w.WriteHeader(500)
+					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
 				PostList = append(PostList, p)
 			}
 			if err = row.Err(); err != nil {
-				w.WriteHeader(500)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			var Username string
+			err = db.QueryRow(r.Context(), "SELECT login FROM users WHERE id=$1", IdUser).Scan(&Username)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			Pagedata := map[string]any{
+				"Posts":    PostList,
+				"Username": Username,
+			}
+
+			err = tmpl.Execute(w, Pagedata)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+		}
+		if r.Method == http.MethodPost {
+			var posts NewPost
+			err := json.NewDecoder(r.Body).Decode(&posts)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
 
-			err = tmpl.Execute(w, PostList)
+			_, err = db.Exec(r.Context(), "INSERT INTO posts(post_text,id_user) VALUES($1,$2)", posts.NewUserpost, IdUser)
 			if err != nil {
-				w.WriteHeader(500)
+				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
-			return
+			w.WriteHeader(http.StatusCreated)
+
 		}
 	}
 }
